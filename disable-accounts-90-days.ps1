@@ -3,6 +3,10 @@
 # Get domain Distinguished Name
 $domainDn = Get-ADDomain | Select -ExpandProperty DistinguishedName | Out-String
 
+# Get Built-in OU's
+$usersOu = -Join ("CN=Users,",$domainDn)
+$computersOu = -Join ("CN=Computers,",$domainDn)
+
 # Get string for OU=Disable,CN=domain,CN=com
 $disabledOuRoot = -Join ("OU=Disabled,",$domainDn)
 
@@ -24,6 +28,12 @@ Search-ADAccount -UsersOnly -AccountInactive -TimeSpan 90.00:00:00 | Where { ($_
 
 # Move disabled users in built-in OU's to root Disabled OU
 Search-ADAccount -UsersOnly -AccountDisabled -TimeSpan 90.00:00:00 | Where { ($_.SamAccountName -notlike "*template*") -and ($_.DistinguishedName -notlike "*Disabled*") } | foreach-object -Begin $null -Process { Move-AdObject -TargetPath $disabledOuRoot -Identity $_ } -End $null
+
+# Move inactive users in built-in OU's to root Disabled OU
+# Search-ADAccount -UsersOnly -AccountInactive -TimeSpan 90.00:00:00 -SearchBase $usersOu | Where { ($_.SamAccountName -notlike "*template*") -and ($_.DistinguishedName # -notlike "*Disabled*") } | foreach-object -Begin $null -Process { Move-AdObject -TargetPath $disabledOuRoot -Identity $_ } -End $null
+# **** INACTIVE UNTIL SEARCHBASE IS WORKING WITH VARIABLE
+# Move disabled users in built-in OU's to root Disabled OU
+# Search-ADAccount -UsersOnly -AccountDisabled -TimeSpan 90.00:00:00 -SearchBase $usersOu | Where { ($_.SamAccountName -notlike "*template*") -and ($_.DistinguishedName # -notlike "*Disabled*") } | foreach-object -Begin $null -Process { Move-AdObject -TargetPath $disabledOuRoot -Identity $_ } -End $null
 
 # Disable inactive users at 90 days in entire directory
 Search-ADAccount -UsersOnly -AccountInactive -TimeSpan 90.00:00:00 | Where -Property DistinguishedName -like "*Disabled*" | Disable-ADAccount
