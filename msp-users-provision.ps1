@@ -1,90 +1,147 @@
+
+# Get Domain information
 $domainDn = Get-AdDomain | Select -Expand DistinguishedName | Out-String
 $domainName = Get-AdDomain | Select -Expand DNSRoot | Out-String
 $pathCheck = Get-AdOrganizationalUnit -Filter 'Name -like MSP"' | Select -Expand DistinguishedName
 $mspDn = "OU=MSP,$domainDn"
 
-$dtcadminUser = "dtcadmin"
-$dtcadminPassword = "@dtcadminPassword@" | ConvertTo-SecureString -AsPlainText -Force
-$dtcRmmUser = "@dtcRmmUser@"
-$dtcRmmPassword = "" | ConvertTo-SecureString -AsPlainText -Force
-$dtcBackupUser = "@dtcBackupUser@"
-$dtcBackupPassword = "" | ConvertTo-SecureString -AsPlainText -Force
+# Set PowerShell variables with data from RMM tool
+$adminUserName = "@adminUser@"
+$adminPassword = "@adminPassword@" | ConvertTo-SecureString -AsPlainText -Force
+$rmmUserName = "@rmmUser@"
+$rmmPassword = "@rmmPassword@" | ConvertTo-SecureString -AsPlainText -Force
+$backupUserName = "@backupUser@"
+$backupPassword = "@backupUserPassword@" | ConvertTo-SecureString -AsPlainText -Force
+$serviceGroup = @serviceGroup@
 
-$dtcadminUser = @{
-    Description = "MSP Admin DTC Inc."
-    UserPrincipalName = "$dtcadminUser" + $domainName
+
+# Set user details and password from RMM tool
+$adminUser = @{
+    Description = "MSP Admin"
+    UserPrincipalName = "@adminUser@" + $domainName
     Name = "DTC Admin"
-    SamAccountName = "dtcadmin"
+    SamAccountName = "@adminUser@"
     Surname = "Admin"
     GivenName = "DTC"
     EmailAddress = "helpdesk@dtctoday.com"
     ChangePasswordAtLogon = 0
     CannotChangePassword = 0
     PasswordNeverExpires = 1
-    AccountPassword = $dtcadminPassword
+    AccountPassword = $adminPassword
     Enabled = 1
     Path = "$mspDn"
 }
-$dtcRmmUser = @{
-    Description = "RMM Service User DTC Inc."
-    UserPrincipalName = "dtcautomate@" + $domainName
-    SamAccountName = "$dtcRmmUser"
+
+$rmmUser = @{
+    Description = "MSP RMM Service User"
+    UserPrincipalName = "@rmmUser@" + $domainName
+    SamAccountName = "@rmmUser@"
     EmailAddress = "helpdesk@dtctoday.com"
     ChangePasswordAtLogon = 0
     CannotChangePassword = 1
     PasswordNeverExpires = 1
-    AccountPassword = $dtcRmmPassword
+    AccountPassword = $rmmPassword
     Enabled = 1
     Path = "$mspDn"
 }
 
-$dtcRmmUser = @{
-    Description = "Backup Service User DTC Inc."
-    UserPrincipalName = "$dtcBackupUser" + $domainName
-    SamAccountName = "$dtcBackupUser"
+$backupUser = @{
+    Description = "MSP Backup Service User"
+    UserPrincipalName = "@backupUserName@" + $domainName
+    SamAccountName = "@backupUserName@"
     EmailAddress = "helpdesk@dtctoday.com"
     ChangePasswordAtLogon = 0
     CannotChangePassword = 1
     PasswordNeverExpires = 1
-    AccountPassword = $dtcBackupPassword
+    AccountPassword = $backupPassword
     Enabled = 1
     Path = "$mspDn"
 }
 
-$dtcadminGroupMemberCheck = Get-AdGroupMember -Identity "Domain Admins"
-$groupCheck = Get-AdGroup -Identity dtcsvc
-$userCheckDtcAdmin = Get-AdUser -Filter 'Name -eq "dtcadmin"'
-$userCheckDtcautomate = Get-AdUser -Filter 'Name -eq "$dtc"'
-$userCheckDtcbackup = Get-AdUser -Filter 'Name -eq "dtcabackup"'
 
+# Checking for existing members in AD groups.
+$groupMemberCheckDomainAdmins = Get-AdGroupMember -Identity "Domain Admins"
+$groupMemberCheckEnterpriseAdmins = Get-AdGroupMember -Identity "Enterprise Admins"
+$groupMemberCheckSchemaAdmins = Get-AdGroupMember -Identity "Schema Admins"
+$groupMemberCheckAdministrators = Get-AdGroupMember -Idenity "Administrators"
+
+# Checking for existing users
+$userCheckAdminUser = Get-AdUser -Filter 'Name -eq "$adminUserName"'
+$userCheckRmmUser = Get-AdUser -Filter 'Name -eq "$rmmUserName"'
+$userCheckBackupUser = Get-AdUser -Filter 'Name -eq "$backupUserName"'
+
+
+# OU Check and Actions
 if ( $pathCheck -eq $null )
 {
     New-AdOrganizationalUnit -Name "MSP" -Path $domainDn
 }
 
+
+# MSP Group Check and Actions
 if ( $groupCheck -eq $null )
 {
-    New-AdGroup -Name "dtcsvc" -SamAccountName "dtcsvc" -GroupCategory Security -GroupScope Global -DisplayName "DTC Service Accounts" -Path $mspDn
-}
-
-if ( $userCheckDtcadmin -eq $null )
-{
-    New-AdUser @dtcadminUser
+    New-AdGroup -Name "$serviceGroup" -SamAccountName "$serviceGroup" -GroupCategory Security -GroupScope Global -DisplayName "MSP Service Accounts" -Path $mspDn
 } else {
-    Get-AdUser -Identity dtcadmin | Move-AdObject -TargetPath "$mspDn"
+    Get-AdGroup -Name "$serviceGroup" | Move-AdObject -TargetPath "$mspDn"
 }
 
-if ( $userCheckDtcRmm -notcontains "$dtcRmmUser")
+
+# User Checks and Actions
+if ( $userCheckAdminUser -eq $null )
 {
-    
+    New-AdUser $adminUser
+} else {
+    Get-AdUser -Identity $adminUserName | Move-AdObject -TargetPath "$mspDn"
 }
 
-$dtcsvcGroupMemberCheck = Get-AdGroupMember -Identity dtcsvc
-
-
-
-if ( $dtcadminGroupMemberCheck -notcontains "dtcadmin" )
+if ( $userCheckRmmUser -notcontains "$rmmUser")
 {
-    Add-AdGroupMember -Identity "Domain Admins" -Members dtcadmin
+    New-AdUser $rmmUser
+} else {
+    Get-AdUser -Identity $rmmUserName | Move-AdObject -TargetPath "$mspDn"
 }
 
+if ( $userCheckBackupUser -notcontains "$backupUser")
+{
+    New-AdUser $rmmUser
+} else {
+    Get-AdUser -Identity $backupUserName | Move-AdObject -TargetPath "$mspDn"
+}
+
+
+# Checking for members in the service group
+$groupMemberCheckService = Get-AdGroupMember -Identity $serviceGroup
+
+
+
+if ( $groupMemberCheckService -notcontains "$backupUserName" )
+{
+    Add-AdGroupMember -Identity "$serviceGroup" -Members $backupUserName
+}
+
+if ( $groupMemberCheckService -notcontains "$rmmUserName")
+{
+    Add-AdGroupMember -Identity "$serviceGroup" -Members $rmmUserName
+}
+
+# Admin checks and actions
+if ( $groupMemberCheckDomainAdmins -notcontains "$adminUserName" )
+{
+    Add-AdGroupMember -Identity "Domain Admins" -Members "$adminUserName"
+}
+
+if ( $groupMemberCheckEnterpriseAdmins -notcontains "$adminUserName" )
+{
+    Add-AdGroupMember -Identity "Enterprise Admins" -Members "$adminUserName"
+}
+
+if ( $groupMemberCheckSchemaAdmins -notcontains "$adminUserName" )
+{
+    Add-AdGroupMember -Identity "SchemaAdmins" -Members "$adminUserName"
+}
+
+if ( $groupMemberCheckAdministrators -notcontains $adminUserName )
+{
+    Add-AdGroupMember -Identity "Administrators" -Members "$adminUserName"
+}
