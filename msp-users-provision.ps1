@@ -11,7 +11,7 @@ $adminPassword = "@adminPassword@" | ConvertTo-SecureString -AsPlainText -Force
 $rmmUserName = "@rmmUser@"
 $rmmPassword = "@rmmPassword@" | ConvertTo-SecureString -AsPlainText -Force
 $backupUserName = "@backupUser@"
-$backupPassword = "@backupUserPassword@" | ConvertTo-SecureString -AsPlainText -Force
+$backupPassword = "@backupPassword@" | ConvertTo-SecureString -AsPlainText -Force
 $serviceGroup = @serviceGroup@
 $mspEmail = @mspEmail@
 
