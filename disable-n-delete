@@ -1,0 +1,85 @@
+# Read the configuration from config.json
+$con# Read the configuration from config.json
+$config = Get-Content -Raw -Path "config.json" | ConvertFrom-Json
+$daysInactiveToDisable = $config.daysInactiveToDisable
+$daysInactiveToDelete = $config.daysInactiveToDelete
+
+# Get the date for disabling inactive accounts
+$timeToDisable = (Get-Date).AddDays(-$daysInactiveToDisable)
+
+# Get the date for deleting inactive accounts
+$timeToDelete = (Get-Date).AddDays(-($daysInactiveToDisable + $daysInactiveToDelete))
+
+# Set up logging
+$LogPath = "$((Get-Location).Path)\log.txt"
+$LogStream = [System.IO.StreamWriter]::new($LogPath, $true)
+
+# Log a message to the log file
+function Write-Log([string]$message, [string]$level) {
+    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    $logEntry = "$timestamp [$level] $message"
+    Write-Host $logEntry
+    $LogStream.WriteLine($logEntry)
+}
+
+# Get a list of inactive user accounts that should be disabled
+$inactiveUsers = Get-ADUser -Filter {LastLogonTimeStamp -lt $timeToDisable -and Enabled -eq $true} -Properties LastLogonTimeStamp
+
+# Disable each inactive user account
+foreach ($user in $inactiveUsers) {
+    Disable-ADAccount $user
+    Write-Log "Disabled user account $($user.SamAccountName)." "INFO"
+}
+
+# Get a list of disabled user accounts that should be deleted
+$deletedObjects = Get-ADObject -Filter {ObjectClass -eq "user" -and Enabled -eq $false -and WhenChanged -le $timeToDelete}
+
+# Delete each inactive user account
+foreach ($object in $deletedObjects) {
+    Remove-ADObject $object -Recursive -Confirm:$false
+    Write-Log "Deleted object $($object.Name)." "INFO"
+}
+
+# Close the log stream
+$LogStream.Dispose()fig = Get-Content -Raw -Path "config.json" | ConvertFrom-Json
+$daysInactiveToDisable = $config.daysInactiveToDisable
+$daysInactiveToDelete = $config.daysInactiveToDelete
+
+# Get the date for disabling inactive accounts
+$timeToDisable = (Get-Date).AddDays(-$daysInactiveToDisable)
+
+# Get the date for deleting inactive accounts
+$timeToDelete = (Get-Date).AddDays(-($daysInactiveToDisable + $daysInactiveToDelete))
+
+# Set up logging
+$LogPath = "$((Get-Location).Path)\log.txt"
+$LogStream = [System.IO.StreamWriter]::new($LogPath, $true)
+
+# Log a message to the log file
+function Write-Log([string]$message, [string]$level) {
+    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    $logEntry = "$timestamp [$level] $message"
+    Write-Host $logEntry
+    $LogStream.WriteLine($logEntry)
+}
+
+# Get a list of inactive user accounts that should be disabled
+$inactiveUsers = Get-ADUser -Filter {LastLogonTimeStamp -lt $timeToDisable -and Enabled -eq $true} -Properties LastLogonTimeStamp
+
+# Disable each inactive user account
+foreach ($user in $inactiveUsers) {
+    Disable-ADAccount $user
+    Write-Log "Disabled user account $($user.SamAccountName)." "INFO"
+}
+
+# Get a list of disabled user accounts that should be deleted
+$deletedObjects = Get-ADObject -Filter {ObjectClass -eq "user" -and Enabled -eq $false -and WhenChanged -le $timeToDelete}
+
+# Delete each inactive user account
+foreach ($object in $deletedObjects) {
+    Remove-ADObject $object -Recursive -Confirm:$false
+    Write-Log "Deleted object $($object.Name)." "INFO"
+}
+
+# Close the log stream
+$LogStream.Dispose()
